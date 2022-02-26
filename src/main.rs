@@ -110,27 +110,10 @@ macro_rules! gen_keybindings(
                 };
             )+
 
-            // for i in 1..$tag_array.len() {
-            //     $(
-            //         let for_tag = format!($tag_binding, i);
-            //         match $crate::helpers::parse_key_binding(for_tag.clone(), &keycodes) {
-            //             Some(key_code) => _map.insert(key_code, run_internal!($tag_action, i)),
-            //             None => die!("invalid key binding: {}", for_tag),
-            //         };
-            //     )+
-            // }
-
             _map
         }
     };
 );
-// pulling out bitmasks to make the following xcb / xrandr calls easier to parse visually
-// const NOTIFY_MASK: u16 = xcb::randr::NOTIFY_MASK_CRTC_CHANGE as u16;
-// const GRAB_MODE_ASYNC: u8 = xcb::GRAB_MODE_ASYNC as u8;
-// const EVENT_MASK: &[Cw] = &[(
-//     xcb::x::Cw::EventMask,
-// )];
-//
 pub struct WindowManager {
     conn: xcb::Connection,
     _screen_num: i32,
@@ -153,7 +136,6 @@ impl WindowManager {
         let screen = self.conn.get_setup().roots().nth(0).unwrap();
         let root = screen.root();
         // xcb docs: https://www.mankier.com/3/xcb_randr_select_input
-        // let input = xcb::randr::select_input(&self.conn, root, NOTIFY_MASK);
         let input = xcb::randr::SelectInput{window:root, enable:NotifyMask::CRTC_CHANGE};
         self.conn.send_request(&input);
         for k in key_bindings.keys() {
@@ -204,28 +186,7 @@ impl WindowManager {
             value_list: &[],
         };
 
-        // // xcb docs: https://www.mankier.com/3/xcb_randr_get_screen_resources
-        // let resources = xcb::randr::get_screen_resources(&self.conn, win_id);
-
-        // // xcb docs: https://www.mankier.com/3/xcb_randr_get_crtc_info
-        // self.screen_dims = match resources.get_reply() {
-        //     Err(e) => die!("error reading X screen resources: {}", e),
-        //     Ok(reply) => reply
-        //         .crtcs()
-        //         .iter()
-        //         .flat_map(|c| xcb::randr::get_crtc_info(&self.conn, *c, 0).get_reply())
-        //         .map(|r| Region::from_crtc_info_reply(r))
-        //         .filter(|r| r.width() > 0)
-        //         .collect(),
-        // };
     }
-
-    //     // xcb docs: https://www.mankier.com/3/xcb_input_raw_button_press_event_t
-    //     fn button_press(&mut self, event: &xcb::ButtonPressEvent) {}
-    // 
-    //     // xcb docs: https://www.mankier.com/3/xcb_input_raw_button_press_event_t
-    //     fn button_release(&mut self, event: &xcb::ButtonReleaseEvent) {}
-    // 
     // xcb docs: https://www.mankier.com/3/xcb_input_device_key_press_event_t
     fn key_press(&mut self, event: &xcb::x::KeyPressEvent, bindings: &KeyBindings) {
         log!("handling keypress: {:?} {:?}", event.state(), event.detail());
@@ -241,14 +202,6 @@ impl WindowManager {
         let bindings = key_bindings();
         self.grab_keys(&bindings);
         loop {
-            // if let Some(event) = self.conn.wait_for_event() {
-            //     log!("got event");
-            //     match event.response_type() {
-            //         xcb::KEY_PRESS => self.key_press(unsafe { xcb::cast_event(&event) }, &bindings),
-            //         _ => (),
-            //     }
-            // }
-            //
             match self.conn.wait_for_event().unwrap() {
                 xcb::Event::X(x::Event::KeyPress(ev)) => {
                     log!("got event");
@@ -267,13 +220,6 @@ impl WindowManager {
         process::exit(0);
     }
 }
-/**
- * Run the xmodmap command to dump the system keymap table in a form
- * that we can load in and convert back to key codes. This lets the user
- * define key bindings in the way that they would expect while also
- * ensuring that it is east to debug any odd issues with bindings by
- * referring the user to the xmodmap output.
- */
 pub fn keycodes_from_xmodmap() -> CodeMap {
     match process::Command::new("xmodmap").arg("-pke").output() {
         Err(e) => die!("unable to fetch keycodes via xmodmap: {}", e),
@@ -290,22 +236,6 @@ pub fn keycodes_from_xmodmap() -> CodeMap {
         },
     }
 }
-
-/**
- * Allow the user to define their keybindings using the gen_keybindings macro
- * which calls through to this. Bindings are of the form '<MOD>-<key name>'
- * with multipple modifiers being allowed, and keynames being taken from the
- * output of 'xmodmap -pke'.
- *
- * Allowed modifiers are:
- *   M - Super
- *   A - Alt
- *   C - Ctrl
- *   S - Shift
- *
- * The user friendly patterns are parsed into a modifier mask and X key code
- * pair that is then grabbed by penrose to trigger the bound action.
- */
 pub fn parse_key_binding<S>(pattern: S, known_codes: &CodeMap) -> Option<KeyCode>
 where
     S: Into<String>,
@@ -335,121 +265,12 @@ where
     }
 }
 
-// /**
-//  * Use the xcb api to query a string property for a window by window ID and poperty name.
-//  * Can fail if the property name is invalid or we get a malformed response from xcb.
-//  */
-// pub fn str_prop(conn: &xcb::Connection, id: u32, name: &str) -> Result<String, String> {
-//     // https://www.mankier.com/3/xcb_intern_atom
-//     let interned_atom = xcb::intern_atom(
-//         conn,  // xcb connection to X11
-//         false, // return the atom ID even if it doesn't already exists
-//         name,  // name of the atom to retrieve
-//     );
-// 
-//     match interned_atom.get_reply() {
-//         Err(e) => Err(format!("unable to fetch xcb atom '{}': {}", name, e)),
-//         Ok(reply) => {
-//             // xcb docs: https://www.mankier.com/3/xcb_get_property
-//             let cookie = xcb::get_property(
-//                 conn,          // xcb connection to X11
-//                 false,         // should the property be deleted
-//                 id,            // target window to query
-//                 reply.atom(),  // the property we want
-//                 xcb::ATOM_ANY, // the type of the property
-//                 0,             // offset in the property to retrieve data from
-//                 1024,          // how many 32bit multiples of data to retrieve
-//             );
-//             match cookie.get_reply() {
-//                 Err(e) => Err(format!("unable to fetch window property: {}", e)),
-//                 Ok(reply) => match String::from_utf8(reply.value().to_vec()) {
-//                     Err(e) => Err(format!("invalid utf8 resonse from xcb: {}", e)),
-//                     Ok(s) => Ok(s),
-//                 },
-//             }
-//         }
-//     }
-// }
-// 
-// pub fn atom_prop(conn: &xcb::Connection, id: u32, name: &str) -> Result<u32, String> {
-//     // https://www.mankier.com/3/xcb_intern_atom
-//     let interned_atom = xcb::intern_atom(
-//         conn, // xcb connection to X11
-//         true, // only return the atom ID if it already exists
-//         name, // name of the atom to retrieve
-//     );
-// 
-//     match interned_atom.get_reply() {
-//         Err(e) => Err(format!("unable to fetch xcb atom '{}': {}", name, e)),
-//         Ok(reply) => {
-//             // xcb docs: https://www.mankier.com/3/xcb_get_property
-//             let cookie = xcb::get_property(
-//                 conn,          // xcb connection to X11
-//                 false,         // should the property be deleted
-//                 id,            // target window to query
-//                 reply.atom(),  // the property we want
-//                 xcb::ATOM_ANY, // the type of the property
-//                 0,             // offset in the property to retrieve data from
-//                 1024,          // how many 32bit multiples of data to retrieve
-//             );
-//             match cookie.get_reply() {
-//                 Err(e) => Err(format!("unable to fetch window property: {}", e)),
-//                 Ok(reply) => {
-//                     if reply.value_len() <= 0 {
-//                         Err(format!("property '{}' was empty for id: {}", name, id))
-//                     } else {
-//                         Ok(reply.value()[0])
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
 
 // pub type LayoutFunc = Box<dyn Fn(usize, &Region, usize, f32) -> Vec<Region>>;
 pub type FireAndForget = Box<dyn Fn(&mut WindowManager) -> ()>;
 pub type KeyBindings = HashMap<KeyCode, FireAndForget>;
 pub type CodeMap = HashMap<String, u8>;
 
-// type CRTCInfoReply = xcb::ffi::randr::xcb_randr_get_crtc_info_reply_t;
-
-// #[derive(Clone, Copy, Debug)]
-// pub struct Region {
-//     x: u32,
-//     y: u32,
-//     w: u32,
-//     h: u32,
-// }
-
-// impl convert::Into<(u32, u32, u32, u32)> for Region {
-//     fn into(self) -> (u32, u32, u32, u32) {
-//         (self.x, self.y, self.w, self.h)
-//     }
-// }
-// 
-// impl Region {
-//     pub fn from_crtc_info_reply(r: xcb::base::Reply<CRTCInfoReply>) -> Region {
-//         Region {
-//             x: r.x() as u32,
-//             y: r.y() as u32,
-//             w: r.width() as u32,
-//             h: r.height() as u32,
-//         }
-//     }
-// 
-//     pub fn width(&self) -> u32 {
-//         self.w
-//     }
-// }
-
-// #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-// pub struct ColorScheme {
-//     pub bg: &'static str,
-//     pub fg_1: &'static str,
-//     pub fg_2: &'static str,
-//     pub fg_3: &'static str,
-//     pub hl: &'static str,
-// }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct KeyCode {
