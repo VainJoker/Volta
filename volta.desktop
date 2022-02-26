@@ -1,0 +1,7 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=VoltaWM
+Comment=A window manager for the adventurer
+Exec=volta
+Type=Application
+DesktopNames=Volta
