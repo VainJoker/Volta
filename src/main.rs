@@ -1,11 +1,10 @@
 #[macro_use]
-pub mod macros;
+pub mod helper;
 
-pub mod models;
 pub mod config;
-pub mod utils;
+pub mod models;
 
 fn main() {
-    let mut wm = models::WindowManager::init();
+    let mut wm = models::wm::WindowManager::init();
     wm.run();
 }

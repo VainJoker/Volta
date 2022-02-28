@@ -1,6 +1,7 @@
 use std::process;
 use xcb::x::KeyButMask;
-use crate::models::{CodeMap,KeyCode};
+use crate::models::key::KeyCode;
+use crate::models::data_types::CodeMap;
 pub fn keycodes_from_xmodmap() -> CodeMap {
     match process::Command::new("xmodmap").arg("-pke").output() {
         Err(e) => die!("unable to fetch keycodes via xmodmap: {}", e),

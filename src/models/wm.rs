@@ -1,30 +1,7 @@
-use xcb::randr::NotifyMask;
-use std::collections::HashMap;
-use xcb::{self, x::{self,KeyButMask}};
-use crate::config;
+use crate::models::{data_types::KeyBindings,key::KeyCode};
+use crate::config::keybind::key_bindings;
 use std::process;
-
-// pub type LayoutFunc = Box<dyn Fn(usize, &Region, usize, f32) -> Vec<Region>>;
-pub type FireAndForget = Box<dyn Fn(&mut WindowManager) -> ()>;
-pub type KeyBindings = HashMap<KeyCode, FireAndForget>;
-pub type CodeMap = HashMap<String, u8>;
-
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct KeyCode {
-    pub mask: KeyButMask,
-    pub code: u8,
-}
-
-impl KeyCode {
-    pub fn from_key_press(k: &xcb::x::KeyPressEvent) -> KeyCode {
-        KeyCode {
-            mask: k.state(),
-            code: k.detail(),
-        }
-    }
-}
-
+use xcb::{x,randr::NotifyMask};
 pub struct WindowManager {
     conn: xcb::Connection,
     _screen_num: i32,
@@ -110,7 +87,7 @@ impl WindowManager {
     }
 
     pub fn run(&mut self) {
-        let bindings = config::key_bindings();
+        let bindings = key_bindings();
         self.grab_keys(&bindings);
         loop {
             match self.conn.wait_for_event().unwrap() {

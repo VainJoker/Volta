@@ -1,4 +1,4 @@
-use crate::models::KeyBindings;
+use crate::models::data_types::KeyBindings;
 pub fn key_bindings() -> KeyBindings {
     gen_keybindings! {
         "M-semicolon" => run_external!("firefox"),

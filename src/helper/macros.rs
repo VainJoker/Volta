@@ -35,19 +35,19 @@ macro_rules! run_external(
         {
             let parts: Vec<&str> = $cmd.split_whitespace().collect();
             if parts.len() > 1 {
-                Box::new(move |_: &mut $crate::models::WindowManager| {
+                Box::new(move |_: &mut $crate::models::wm::WindowManager| {
                     match ::std::process::Command::new(parts[0]).args(&parts[1..]).spawn() {
                         Ok(_) => (),
                         Err(e) => warn!("error spawning external program: {}", e),
                     };
-                }) as $crate::models::FireAndForget
+                }) as $crate::models::data_types::FireAndForget
             } else {
-                Box::new(move |_: &mut $crate::models::WindowManager| {
+                Box::new(move |_: &mut $crate::models::wm::WindowManager| {
                     match ::std::process::Command::new(parts[0]).spawn() {
                         Ok(_) => (),
                         Err(e) => warn!("error spawning external program: {}", e),
                     };
-                }) as $crate::models::FireAndForget
+                }) as $crate::models::data_types::FireAndForget
             }
         }
     };
@@ -57,14 +57,14 @@ macro_rules! run_external(
 #[macro_export]
 macro_rules! run_internal(
     ($func:ident) => {
-        Box::new(|wm: &mut $crate::models::WindowManager| {
+        Box::new(|wm: &mut $crate::models::wm::WindowManager| {
             log!("calling method ({})", stringify!($func));
             wm.$func()
         })
     };
 
     ($func:ident, $arg:tt) => {
-        Box::new(move |wm: &mut $crate::models::WindowManager| wm.$func($arg))
+        Box::new(move |wm: &mut $crate::models::wm::WindowManager| wm.$func($arg))
     };
 );
 
@@ -91,10 +91,10 @@ macro_rules! gen_keybindings(
     } => {
         {
             let mut _map = ::std::collections::HashMap::new();
-            let keycodes = $crate::utils::keycodes_from_xmodmap();
+            let keycodes = $crate::helper::utils::keycodes_from_xmodmap();
 
             $(
-                match $crate::utils::parse_key_binding($binding, &keycodes) {
+                match $crate::helper::utils::parse_key_binding($binding, &keycodes) {
                     Some(key_code) => _map.insert(key_code, $action),
                     None => die!("invalid key binding: {}", $binding),
                 };
