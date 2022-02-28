@@ -9,6 +9,3 @@ fn main() {
     let mut wm = models::WindowManager::init();
     wm.run();
 }
-
-
-
